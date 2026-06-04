@@ -43,7 +43,7 @@
         /* 遊戲覆蓋層（羊皮紙文學風格） */
         .overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(44, 62, 80, 0.75); display: flex; flex-direction: column;
+            background: rgba(44, 62, 80, 0.85); display: flex; flex-direction: column;
             justify-content: center; align-items: center; color: white; text-align: center; z-index: 100;
         }
         .hidden { display: none !important; }
@@ -61,7 +61,7 @@
             padding: 10px; margin-bottom: 20px;
         }
         .poem-highlight {
-            color: #d32f2f; font-size: 32px; font-weight: bold; display: block;
+            color: #d32f2f; font-size: 30px; font-weight: bold; display: block;
             margin: 15px 0; text-align: center; font-family: 'Kaiti', '標楷體', serif;
             background: #f2e6cb; padding: 10px; border-radius: 8px; border-left: 5px solid #d32f2f;
         }
@@ -94,7 +94,6 @@
         <div class="dbtn" id="down">▼</div>
     </div>
 
-    <!-- 開始畫面 -->
     <div id="start-screen" class="overlay">
         <div class="panel">
             <h1>📜 杜甫《客至》情境體驗遊戲</h1>
@@ -103,16 +102,14 @@
         </div>
     </div>
 
-    <!-- 多頁式劇情/內心獨白對話框 -->
     <div id="dialog-screen" class="overlay hidden">
-        <div class="panel" style="width: 600px;">
-            <div id="speaker-name" style="font-size: 22px; font-weight: bold; color: #795548; margin-bottom: 5px;">杜甫：</div>
+        <div class="panel" style="width: 700px;">
+            <div id="speaker-name" style="font-size: 22px; font-weight: bold; color: #795548; margin-bottom: 5px; text-align: left;">杜甫：</div>
             <div id="dialog-text" class="dialog-box"></div>
             <button id="dialog-btn" onclick="advanceScript()">點擊繼續 ➔</button>
         </div>
     </div>
 
-    <!-- 結束畫面 -->
     <div id="end-screen" class="overlay hidden">
         <div class="panel">
             <h1 style="color: #27ae60; border-color: #27ae60;">🎉 賓主盡歡，隔離同飲！</h1>
@@ -130,11 +127,18 @@
 </div>
 
 <script>
-    // --- 聲音引擎 (極簡合成音樂) ---
+    // --- 安全穩定的聲音引擎 ---
     let audioCtx = null;
+    function initAudio() {
+        if (!audioCtx) {
+            try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } 
+            catch(e) { console.warn("Audio Context Failed", e); }
+        }
+    }
+
     function playSound(type) {
+        if (!audioCtx) return;
         try {
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (audioCtx.state === 'suspended') audioCtx.resume();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
@@ -147,19 +151,18 @@
                 gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.15);
                 osc.start(); osc.stop(audioCtx.currentTime + 0.15);
             } else if(type === 'happy') {
-                // 歡快的三連音
                 const now = audioCtx.currentTime;
-                osc.frequency.setValueAtTime(523.25, now); // C5
-                osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
-                osc.frequency.setValueAtTime(783.99, now + 0.2); // G5
+                osc.frequency.setValueAtTime(523.25, now); 
+                osc.frequency.setValueAtTime(659.25, now + 0.1); 
+                osc.frequency.setValueAtTime(783.99, now + 0.2); 
                 gain.gain.setValueAtTime(0.2, now);
                 gain.gain.linearRampToValueAtTime(0, now + 0.4);
                 osc.start(); osc.stop(now + 0.4);
             }
-        } catch(e) { console.log(e); }
+        } catch(e) {}
     }
 
-    // --- 劇本系統 (處理詩人的情緒流露) ---
+    // --- 情感豐沛的劇本系統 ---
     let scriptIndex = 0;
     let currentScript = [];
     let scriptCallback = null;
@@ -171,24 +174,24 @@
     ];
 
     const phase1Script = [
-        { name: "杜甫", text: "哎呀！平時只有我自己，這院子裡的落花小徑我都從來沒掃過。\n今天老朋友要來，我要把院子掃得乾乾淨淨！<br><span class='poem-highlight'>「花徑不曾緣客掃」</span>" },
+        { name: "杜甫", text: "哎呀！平時只有我自己，這院子裡的落花小徑我都從來沒為別人掃過。\n今天老朋友要來，我要把院子掃得乾乾淨淨！<br><span class='poem-highlight'>「花徑不曾緣客掃」</span>" },
         { name: "杜甫", text: "快！還要把一直緊閉的草堂大門打開，迎接我的好朋友！<br><span class='poem-highlight'>「蓬門今始為君開」</span>" }
     ];
 
     const phase2Script = [
-        { name: "杜甫", text: "糟糕，崔兄快到了，但我該拿什麼招待他呢？這裡離城裡的市場太遠了，買不到豐富的菜餚……（急得抓頭）" },
-        { name: "杜甫", text: "而且最近家裡也有些貧困，沒有昂貴的好酒，只有我自己釀製的、還沒濾掉酒糟的糯米舊酒……" },
-        { name: "杜甫", text: "不過，真誠的友情勝過千言萬語！把我這裡最好的家常菜和舊醅都拿出來吧！老朋友一定懂我的心！<br><span class='poem-highlight'>「盤飧市遠無兼味，樽酒家貧只舊醅。」</span>" }
+        { name: "杜甫", text: "（看著桌上的食物，面露慚愧）\n抱歉，家中只有這些簡陋的酒菜了，這是我僅有最好的食物了，希望老朋友不要嫌棄。<br><span class='poem-highlight'>「盤飧市遠無兼味，樽酒家貧只舊醅。」</span>" }
     ];
 
     const phase3Script = [
-        { name: "杜甫", text: "（激動地大喊）\n崔兄！！你終於到了！快請進，快請進！請上座！" },
-        { name: "崔明府", text: "子美兄！一別數載，沒想到你的草堂如此清幽雅致，今天我們一定要不醉不歸！" }
+        { name: "杜甫", text: "崔兄！快請坐！\n抱歉，家中貧寒，只有這些簡陋的舊酒和粗菜，希望你不要嫌棄。" },
+        { name: "崔明府", text: "子美兄言重了！不會不會，能和知心好友相聚，酒菜一點都不重要！這草堂風景清幽，正是飲酒的好地方！" }
     ];
 
     const phase4Script = [
-        { name: "杜甫", text: "兩個人對飲好像還不夠熱鬧！對了，我那隔壁的傲傲老翁人非常好，不如把他一起叫來，大家人多更開心！" },
-        { name: "杜甫", text: "（走到籬笆旁大喊）\n老鄰居！老鄰居！我家來貴客了，快帶上你的酒杯，一起過來暢飲吧！<br><span class='poem-highlight'>「肯與鄰翁相對飲，隔離呼取盡餘杯。」</span>" }
+        { name: "杜甫", text: "對了！獨樂樂不如眾樂樂，不如把隔壁的老翁也叫來一起喝！" },
+        { name: "杜甫", text: "（走到籬笆旁大喊）\n老鄰居！我家來貴客了，快帶上你的酒杯，一起過來暢飲吧！<br><span class='poem-highlight'>「肯與鄰翁相對飲，隔離呼取盡餘杯。」</span>" },
+        { name: "鄰居老翁", text: "來了來了！好香的酒，多謝子美兄邀請！" },
+        { name: "杜甫", text: "（舉杯大笑）哈哈哈！今天能與摯友和好鄰居同聚，真是我這段時間以來最歡喜的一天啊！乾杯！" }
     ];
 
     function startScript(scriptArray, callback) {
@@ -209,27 +212,30 @@
             playSound('pop');
             scriptIndex++;
         } else {
+            // 對話結束，嚴格執行回調並關閉鎖
             document.getElementById('dialog-screen').classList.add('hidden');
-            if (scriptCallback) scriptCallback();
+            let cb = scriptCallback;
+            scriptCallback = null; 
+            if (cb) cb();
         }
     }
 
-    // --- 遊戲引擎設定 ---
+    // --- 遊戲引擎與防連環觸發系統 ---
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     
     let gameState = 'init'; 
     let phase = 0; 
     let animFrame = 0;
+    let isTransitioning = false; // 🔒 防連環觸發的安全鎖！
 
-    // 玩家控制
     const keys = { ArrowUp:false, ArrowLeft:false, ArrowDown:false, ArrowRight:false, w:false, a:false, s:false, d:false };
     const player = { x: 600, y: 550, size: 25, speed: 6, emoji: '👳‍♂️', state: 'normal', jumpY: 0, showHearts: false };
 
     window.addEventListener('keydown', e => { if(keys.hasOwnProperty(e.key)) keys[e.key] = true; });
     window.addEventListener('keyup', e => { if(keys.hasOwnProperty(e.key)) keys[e.key] = false; });
-
-    // 地圖元素
+    
+    // --- 環境物件設定 ---
     let env = {
         house: { x: 300, y: 100, w: 600, h: 180 },
         kitchen: { x: 320, y: 180, w: 100, h: 60 },
@@ -240,43 +246,35 @@
         petals: []
     };
 
-    // NPCs
-    let cui = { x: 600, y: 880, active: false, emoji: '👨‍💼', jumpY: 0 };
-    let neighbor = { x: 1250, y: 480, active: false, emoji: '👴' };
+    let cui = { x: 600, y: 880, active: false, emoji: '👨‍💼', jumpY: 0, showHearts: false };
+    let neighbor = { x: 1250, y: 480, active: false, emoji: '👴', jumpY: 0, showHearts: false };
 
-    // 初始化大量落花 (更美觀)
+    // 浪漫落花
     for(let i=0; i<60; i++) {
         env.petals.push({
-            x: 100 + Math.random() * 1000,
-            y: 300 + Math.random() * 380,
-            r: 4 + Math.random() * 4,
-            color: Math.random() > 0.5 ? '#ffb6c1' : '#ffc0cb'
+            x: 100 + Math.random() * 1000, y: 300 + Math.random() * 380,
+            r: 4 + Math.random() * 4, color: Math.random() > 0.5 ? '#ffb6c1' : '#ffc0cb'
         });
     }
 
-    // 模擬動態飛行的海鷗
+    // 動態海鷗
     let gulls = [
         {x: 200, y: 40, s: 1.5, angle: 0},
         {x: 500, y: 60, s: 1.2, angle: Math.PI},
         {x: 900, y: 30, s: 2.0, angle: Math.PI/2}
     ];
 
-    // --- 繪圖函數群 ---
+    // --- 核心繪圖系統 ---
     function drawMap() {
-        // 1. 舍南舍北皆春水 (動態流動的春水)
         let wave = Math.sin(animFrame * 0.05) * 5;
-        ctx.fillStyle = '#4ea1a1'; ctx.fillRect(0, 0, canvas.width, 95); // 深水
-        ctx.fillStyle = '#71baba'; ctx.fillRect(0, 95 + wave, canvas.width, 15); // 浪花淺水
+        ctx.fillStyle = '#4ea1a1'; ctx.fillRect(0, 0, canvas.width, 95); 
+        ctx.fillStyle = '#71baba'; ctx.fillRect(0, 95 + wave, canvas.width, 15); 
 
-        // 2. 翠綠庭院草地
         ctx.fillStyle = '#9cd8a1'; ctx.fillRect(0, 110, canvas.width, canvas.height - 110);
-        
-        // 3. 田園風黃土泥路
         ctx.fillStyle = '#e4ca9b';
-        ctx.fillRect(550, 280, 100, 520); // 縱向迎客路
-        ctx.fillRect(200, 430, 800, 90);  // 橫向生活路
+        ctx.fillRect(550, 280, 100, 520); 
+        ctx.fillRect(200, 430, 800, 90);  
 
-        // 4. 動態海鷗飛行
         ctx.fillStyle = '#ffffff';
         gulls.forEach(g => {
             g.x += g.s; if(g.x > canvas.width + 50) g.x = -50;
@@ -289,71 +287,58 @@
             ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke();
         });
 
-        // 5. 右側籬笆
         if(env.fence.show) {
             ctx.fillStyle = '#8c6843';
-            for(let y = env.fence.y; y < env.fence.y + env.fence.h; y += 30) {
-                ctx.fillRect(env.fence.x, y, 12, 25);
-            }
+            for(let y = env.fence.y; y < env.fence.y + env.fence.h; y += 30) ctx.fillRect(env.fence.x, y, 12, 25);
             ctx.fillRect(env.fence.x - 5, env.fence.y + 100, 22, 10);
             ctx.fillRect(env.fence.x - 5, env.fence.y + 300, 22, 10);
         }
 
-        // 6. 滿地浪漫落花 (花徑)
         env.petals.forEach(p => {
             ctx.fillStyle = p.color;
             ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
         });
 
-        // 7. 兩側盛開的桃花樹 (充滿活力)
         drawBloomingTree(120, 320); drawBloomingTree(130, 650);
         drawBloomingTree(1080, 300); drawBloomingTree(1060, 680);
 
-        // 8. 溫馨草堂大屋
         ctx.fillStyle = '#e6cda3'; ctx.fillRect(env.house.x, env.house.y, env.house.w, env.house.h); 
-        ctx.fillStyle = '#a0522d'; ctx.fillRect(env.house.x - 20, env.house.y - 15, env.house.w + 40, 45); // 厚重稻草屋頂
+        ctx.fillStyle = '#a0522d'; ctx.fillRect(env.house.x - 20, env.house.y - 15, env.house.w + 40, 45); 
         
-        // 廚房標誌
         ctx.fillStyle = '#7f8c8d'; ctx.fillRect(env.kitchen.x, env.kitchen.y, env.kitchen.w, env.kitchen.h);
         ctx.font = '36px Arial'; ctx.fillText('🍲', env.kitchen.x + 50, env.kitchen.y + 30);
 
-        // 9. 待客石桌椅
         ctx.fillStyle = '#bdc3c7';
         ctx.beginPath(); ctx.arc(env.table.x, env.table.y, env.table.r, 0, Math.PI*2); ctx.fill();
         ctx.strokeStyle = '#95a5a6'; ctx.lineWidth = 4; ctx.stroke();
-        // 四個小石凳
         ctx.beginPath(); ctx.arc(env.table.x - 75, env.table.y, 16, 0, Math.PI*2); ctx.fill();
         ctx.beginPath(); ctx.arc(env.table.x + 75, env.table.y, 16, 0, Math.PI*2); ctx.fill();
         ctx.beginPath(); ctx.arc(env.table.x, env.table.y - 75, 16, 0, Math.PI*2); ctx.fill();
 
-        // 桌上酒菜出現
         if(env.table.hasFood) {
             ctx.font = '34px Arial';
             ctx.fillText('🍲', env.table.x - 18, env.table.y);
             ctx.fillText('🍶', env.table.x + 20, env.table.y);
         }
 
-        // 10. 柴門/蓬門
         ctx.fillStyle = '#5c3a21';
         if(!env.gate.open) {
-            ctx.fillRect(env.gate.x, env.gate.y, env.gate.w, env.gate.h); // 關門狀態
+            ctx.fillRect(env.gate.x, env.gate.y, env.gate.w, env.gate.h); 
             ctx.fillStyle = '#f1c40f'; ctx.font = '20px Arial';
             ctx.fillText('蓬門緊閉', env.gate.x + 100, env.gate.y + 35);
         } else {
-            ctx.fillRect(env.gate.x, env.gate.y, 25, env.gate.h); // 大開門迎客
+            ctx.fillRect(env.gate.x, env.gate.y, 25, env.gate.h); 
             ctx.fillRect(env.gate.x + env.gate.w - 25, env.gate.y, 25, env.gate.h); 
         }
 
-        // 道具：工具留下來的掃把
         if(env.broom.active) {
-            ctx.font = '40px Arial';
-            ctx.fillText('🧹', env.broom.x, env.broom.y);
+            ctx.font = '40px Arial'; ctx.fillText('🧹', env.broom.x, env.broom.y);
         }
     }
 
     function drawBloomingTree(x, y) {
-        ctx.fillStyle = '#5c3a21'; ctx.fillRect(x - 8, y, 16, 60); // 樹幹
-        ctx.fillStyle = '#ff69b4'; ctx.beginPath(); ctx.arc(x, y - 25, 50, 0, Math.PI*2); ctx.fill(); // 粉紅大花冠
+        ctx.fillStyle = '#5c3a21'; ctx.fillRect(x - 8, y, 16, 60); 
+        ctx.fillStyle = '#ff69b4'; ctx.beginPath(); ctx.arc(x, y - 25, 50, 0, Math.PI*2); ctx.fill(); 
         ctx.fillStyle = '#ffb6c1'; ctx.beginPath(); ctx.arc(x - 30, y - 10, 35, 0, Math.PI*2); ctx.fill();
         ctx.beginPath(); ctx.arc(x + 30, y - 10, 35, 0, Math.PI*2); ctx.fill();
     }
@@ -361,20 +346,15 @@
     function drawSprite(c, isPlayer) {
         if(!c.active && !isPlayer) return;
         ctx.save();
-        
-        // 處理跳躍狂喜動畫
-        let targetY = c.y;
-        if(c.jumpY < 0) targetY += c.jumpY;
+        let targetY = c.y + c.jumpY;
 
         ctx.font = '55px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(c.emoji, c.x, targetY);
 
-        // 玩家搬運酒菜視覺
         if(isPlayer && player.state === 'holdingFood') {
             ctx.font = '30px Arial'; ctx.fillText('🍲', c.x + 25, targetY - 25);
         }
 
-        // 狂喜冒愛心/音符特效
         if(c.showHearts && (animFrame % 10 < 6)) {
             ctx.font = '24px Arial';
             ctx.fillText('❤️', c.x - 30, targetY - 45);
@@ -392,17 +372,16 @@
         ctx.fillText('❓', x, y - 40 - pulse*0.5);
     }
 
-    // --- 核心劇本推進流 ---
+    // --- 嚴謹的腳本啟動與遊戲流程 ---
     function startIntro() {
+        initAudio(); // 確保音效引擎安全啟動
         document.getElementById('start-screen').classList.add('hidden');
         startScript(introScript, () => {
-            // 開場演完，正式進入階段1
             phase = 1;
             document.getElementById('task-bar').style.display = 'block';
-            document.getElementById('task-text').innerText = tasks[0];
+            document.getElementById('task-text').innerText = "找出「掃把」打掃，並打開下方「蓬門」。";
             document.getElementById('dpad').style.display = 'block';
             gameState = 'playing';
-            // 讓杜甫原地開心跳一下
             triggerJoy(player);
         });
     }
@@ -425,26 +404,29 @@
     }
 
     function checkStageProgress() {
-        if(gameState !== 'playing') return;
-        let dx, dy;
+        if(gameState !== 'playing' || isTransitioning) return;
+        let dx, dy, dist;
 
         // 1. 掃地與開蓬門
         if(phase === 1) {
             if(env.broom.active) {
                 dx = player.x - env.broom.x; dy = player.y - env.broom.y;
                 if(Math.sqrt(dx*dx + dy*dy) < 55) {
-                    env.broom.active = false; env.petals = []; // 掃乾淨！花徑落花空了
+                    env.broom.active = false; env.petals = []; 
                     playSound('pop');
                 }
             }
             if(!env.broom.active && !env.gate.open) {
                 if(player.x > env.gate.x && player.x < env.gate.x + env.gate.w && player.y > env.gate.y - 55) {
+                    isTransitioning = true; // 上鎖！防止多重觸發
                     env.gate.open = true;
-                    player.emoji = '😄'; // 杜甫露出笑容
+                    player.emoji = '😄'; 
                     startScript(phase1Script, () => {
                         phase = 2;
-                        document.getElementById('task-text').innerText = tasks[1];
+                        document.getElementById('task-text').innerText = "到左側「廚房」準備酒菜放桌上。";
+                        isTransitioning = false; // 開鎖
                         gameState = 'playing';
+                        document.getElementById('dpad').style.display = 'block';
                     });
                 }
             }
@@ -460,13 +442,16 @@
             if(player.state === 'holdingFood') {
                 dx = player.x - env.table.x; dy = player.y - env.table.y;
                 if(Math.sqrt(dx*dx + dy*dy) < 75) {
+                    isTransitioning = true;
                     env.table.hasFood = true; player.state = 'normal';
                     player.emoji = '😋';
                     startScript(phase2Script, () => {
                         phase = 3;
-                        document.getElementById('task-text').innerText = tasks[2];
-                        cui.active = true; cui.x = 600; cui.y = 760; // 崔明府大門口出現！
+                        document.getElementById('task-text').innerText = "走到門口迎接好友「崔明府」入座。";
+                        cui.active = true; cui.x = 600; cui.y = 760; 
+                        isTransitioning = false;
                         gameState = 'playing';
+                        document.getElementById('dpad').style.display = 'block';
                     });
                 }
             }
@@ -476,18 +461,19 @@
         if(phase === 3) {
             dx = player.x - cui.x; dy = player.y - cui.y;
             if(Math.sqrt(dx*dx + dy*dy) < 65) {
-                // 狂喜！！杜甫和客人一起大跳跳
+                isTransitioning = true;
                 triggerJoy(player); triggerJoy(cui);
                 player.emoji = '😆';
                 
-                // 入座
                 cui.x = env.table.x - 75; cui.y = env.table.y;
                 player.x = env.table.x + 75; player.y = env.table.y;
                 
                 startScript(phase3Script, () => {
                     phase = 4;
-                    document.getElementById('task-text').innerText = tasks[3];
+                    document.getElementById('task-text').innerText = "走到右側「籬笆」呼叫鄰居共飲。";
+                    isTransitioning = false;
                     gameState = 'playing';
+                    document.getElementById('dpad').style.display = 'block';
                 });
             }
         }
@@ -495,15 +481,15 @@
         // 4. 呼喚鄰居共飲
         if(phase === 4) {
             if(player.x > env.fence.x - 65) {
-                env.fence.show = false; // 籬笆在熱情下「消失」通透了
+                isTransitioning = true;
+                env.fence.show = false; 
                 neighbor.active = true;
-                neighbor.x = env.table.x; neighbor.y = env.table.y - 75; // 鄰居直接入座
-                player.x = env.table.x + 75; player.y = env.table.y; // 杜甫歸位
+                neighbor.x = env.table.x; neighbor.y = env.table.y - 75; 
+                player.x = env.table.x + 75; player.y = env.table.y; 
                 
-                triggerJoy(player); triggerJoy(neighbor);
+                triggerJoy(player); triggerJoy(neighbor); triggerJoy(cui);
                 
                 startScript(phase4Script, () => {
-                    // 全劇終，大圓滿
                     gameState = 'end';
                     document.getElementById('task-bar').style.display = 'none';
                     document.getElementById('dpad').style.display = 'none';
@@ -513,33 +499,28 @@
         }
     }
 
-    // --- 主遊戲循環常駐引擎 ---
     function gameLoop() {
         animFrame++;
         
-        if(gameState === 'playing') {
+        if(gameState === 'playing' && !isTransitioning) {
             let nx = player.x, ny = player.y;
             if(keys.ArrowUp || keys.w) ny -= player.speed;
             if(keys.ArrowDown || keys.s) ny += player.speed;
             if(keys.ArrowLeft || keys.a) nx -= player.speed;
             if(keys.ArrowRight || keys.d) nx += player.speed;
 
-            // 移動邊界與房屋硬碰撞阻擋
             nx = Math.max(30, Math.min(1170, nx));
             ny = Math.max(120, Math.min(770, ny));
             
-            // 房子碰撞箱防禦
             if(!(nx > env.house.x - 20 && nx < env.house.x + env.house.w + 20 && ny < env.house.y + env.house.h + 10)) {
                 player.x = nx; player.y = ny;
             }
             checkStageProgress();
         }
 
-        // 繪圖渲染層
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         drawMap();
         
-        // 渲染導航問號
         if(gameState === 'playing') {
             if(phase === 1 && env.broom.active) drawQuestMarker(env.broom.x, env.broom.y);
             else if(phase === 1 && !env.broom.active && !env.gate.open) drawQuestMarker(env.gate.x + 100, env.gate.y + 20);
@@ -556,7 +537,7 @@
         requestAnimationFrame(gameLoop);
     }
 
-    // 啟動首幀背景渲染
+    drawMap(); drawSprite(player, true);
     requestAnimationFrame(gameLoop);
 </script>
 </body>
