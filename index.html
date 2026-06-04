@@ -42,7 +42,7 @@
         /* 畫面覆蓋層 */
         .overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.8); display: flex; flex-direction: column;
+            background: rgba(0, 0, 0, 0.85); display: flex; flex-direction: column;
             justify-content: center; align-items: center; color: white; text-align: center; z-index: 100;
         }
         .hidden { display: none !important; }
@@ -84,7 +84,6 @@
         <div class="dbtn" id="down">⬇️</div>
     </div>
 
-    <!-- 開始畫面 -->
     <div id="start-screen" class="overlay">
         <div class="panel">
             <h1>📜 杜甫《客至》</h1>
@@ -94,7 +93,6 @@
         </div>
     </div>
 
-    <!-- 劇情對話框 -->
     <div id="dialog-screen" class="overlay hidden">
         <div class="panel">
             <div id="dialog-text"></div>
@@ -102,7 +100,6 @@
         </div>
     </div>
 
-    <!-- 結束畫面 -->
     <div id="end-screen" class="overlay hidden">
         <div class="panel" style="text-align: center;">
             <h1 style="color: #c0392b; border-color: #c0392b;">🎉 賓主盡歡</h1>
@@ -119,29 +116,39 @@
 </div>
 
 <script>
-    // --- 聲音引擎 ---
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // --- 聲音引擎 (延遲載入防當機設計) ---
+    let audioCtx = null;
     function playSound(type) {
-        if(audioCtx.state === 'suspended') audioCtx.resume();
-        const osc = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        osc.connect(gainNode); gainNode.connect(audioCtx.destination);
+        try {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) audioCtx = new AudioContext();
+            }
+            if (!audioCtx) return; // 若設備不支援，則靜音執行，防止崩潰
+            if (audioCtx.state === 'suspended') audioCtx.resume();
 
-        if(type === 'task') {
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(500, audioCtx.currentTime);
-            osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.1);
-            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
-            osc.start(); osc.stop(audioCtx.currentTime + 0.5);
-        } else if(type === 'victory') {
-            osc.type = 'triangle';
-            osc.frequency.setValueAtTime(400, audioCtx.currentTime);
-            osc.frequency.setValueAtTime(600, audioCtx.currentTime + 0.2);
-            osc.frequency.setValueAtTime(800, audioCtx.currentTime + 0.4);
-            gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
-            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.0);
-            osc.start(); osc.stop(audioCtx.currentTime + 1.0);
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.connect(gainNode); gainNode.connect(audioCtx.destination);
+
+            if(type === 'task') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(500, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.1);
+                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+            } else if(type === 'victory') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(600, audioCtx.currentTime + 0.2);
+                osc.frequency.setValueAtTime(800, audioCtx.currentTime + 0.4);
+                gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.0);
+                osc.start(); osc.stop(audioCtx.currentTime + 1.0);
+            }
+        } catch(e) {
+            console.warn("Audio exception handled:", e);
         }
     }
 
@@ -227,12 +234,13 @@
         }
 
         // 草堂房子
-        ctx.fillStyle = '#F5DEB3'; ctx.fillRect(env.house.x, env.house.y, env.house.w, env.house.h); // 牆壁
-        ctx.fillStyle = '#8B4513'; ctx.fillRect(env.house.x-20, env.house.y-20, env.house.w+40, 60); // 茅草屋頂
+        ctx.fillStyle = '#F5DEB3'; ctx.fillRect(env.house.x, env.house.y, env.house.w, env.house.h); 
+        ctx.fillStyle = '#8B4513'; ctx.fillRect(env.house.x-20, env.house.y-20, env.house.w+40, 60); 
         
         // 廚房區
         ctx.fillStyle = '#7f8c8d'; ctx.fillRect(env.kitchen.x, env.kitchen.y, env.kitchen.w, env.kitchen.h);
-        ctx.font = '40px Arial'; ctx.fillText('🍲', env.kitchen.x + 30, env.kitchen.y + 55);
+        ctx.font = '40px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('🍲', env.kitchen.x + 50, env.kitchen.y + 40);
 
         // 石桌
         ctx.fillStyle = '#D3D3D3';
@@ -240,17 +248,17 @@
         ctx.strokeStyle = '#808080'; ctx.lineWidth = 4; ctx.stroke();
         
         if(env.table.hasFood) {
-            ctx.fillText('🍲', env.table.x - 30, env.table.y + 10);
-            ctx.fillText('🍶', env.table.x + 5, env.table.y + 10);
+            ctx.fillText('🍲', env.table.x - 20, env.table.y);
+            ctx.fillText('🍶', env.table.x + 20, env.table.y);
         }
 
         // 蓬門 (大門)
         ctx.fillStyle = '#8B4513';
         if(!env.gate.open) {
-            ctx.fillRect(env.gate.x, env.gate.y, env.gate.w, env.gate.h); // 關閉
+            ctx.fillRect(env.gate.x, env.gate.y, env.gate.w, env.gate.h); 
         } else {
-            ctx.fillRect(env.gate.x, env.gate.y, 30, env.gate.h); // 打開(左)
-            ctx.fillRect(env.gate.x + env.gate.w - 30, env.gate.y, 30, env.gate.h); // 打開(右)
+            ctx.fillRect(env.gate.x, env.gate.y, 30, env.gate.h); 
+            ctx.fillRect(env.gate.x + env.gate.w - 30, env.gate.y, 30, env.gate.h); 
         }
 
         // 掃把
@@ -260,8 +268,8 @@
     }
 
     function drawTree(tx, ty) {
-        ctx.fillStyle = '#8B4513'; ctx.fillRect(tx-10, ty, 20, 80); // 樹幹
-        ctx.fillStyle = '#FFC0CB'; // 粉紅櫻花/桃花
+        ctx.fillStyle = '#8B4513'; ctx.fillRect(tx-10, ty, 20, 80); 
+        ctx.fillStyle = '#FFC0CB'; 
         ctx.beginPath(); ctx.arc(tx, ty-20, 60, 0, Math.PI*2); ctx.fill();
         ctx.beginPath(); ctx.arc(tx-40, ty+10, 50, 0, Math.PI*2); ctx.fill();
         ctx.beginPath(); ctx.arc(tx+40, ty+10, 50, 0, Math.PI*2); ctx.fill();
@@ -271,34 +279,30 @@
         if(!c.active && !isPlayer) return;
         ctx.font = '50px Arial';
         ctx.textAlign = 'center'; 
-        ctx.textBaseline = 'middle'; // 🐛 就是這裡！修復了缺少 ctx. 的問題！
+        ctx.textBaseline = 'middle'; 
         
-        // 畫表情符號
         ctx.fillText(c.emoji, c.x, c.y + 15);
         
-        // 如果玩家拿著東西
         if(isPlayer && player.state === 'holdingFood') {
-            ctx.font = '30px Arial'; ctx.fillText('🍲', c.x + 20, c.y - 10);
+            ctx.font = '30px Arial'; ctx.fillText('🍲', c.x + 20, c.y - 15);
         }
     }
 
-    // 繪製任務提示問號與光暈
     function drawQuestMarker(x, y) {
         let pulse = Math.abs(Math.sin(animFrame * 0.1)) * 10;
         ctx.fillStyle = `rgba(241, 196, 15, ${0.4 + pulse*0.02})`;
         ctx.beginPath(); ctx.arc(x, y, 40 + pulse, 0, Math.PI*2); ctx.fill();
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 30px Arial'; ctx.textAlign = 'center';
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 30px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText('❓', x, y - 40 - pulse*0.5);
     }
 
-    // 🌟 在遊戲開始前先畫一次背景，讓開始畫面的背後不會全黑
+    // 🌟 在玩家還未按開始前，先畫好場景預覽
     drawBackground();
     drawCharacter(player, true);
 
     // --- 遊戲邏輯與互動 ---
     function startGame() {
         document.getElementById('start-screen').classList.add('hidden');
-        document.getElementById('ui-layer').classList.remove('hidden');
         document.getElementById('task-bar').classList.remove('hidden');
         document.getElementById('dpad').classList.remove('hidden');
         
@@ -311,7 +315,6 @@
         gameState = 'dialog';
         playSound('task');
         
-        // 格式化文字，將詩句變色加粗
         let formattedText = text.replace(/「(.*?)」/g, '<br><span class="poem">「$1」</span><br>');
         
         document.getElementById('dialog-screen').classList.remove('hidden');
@@ -333,7 +336,6 @@
             document.getElementById('task-text').innerText = tasks[3];
             gameState = 'playing';
         } else if (phase === 5) {
-            // 結局
             playSound('victory');
             document.getElementById('task-bar').classList.add('hidden');
             document.getElementById('dpad').classList.add('hidden');
@@ -345,19 +347,19 @@
     function checkInteractions() {
         if(gameState !== 'playing') return;
         
-        let dx, dy, dist;
+        let dx, dy;
 
         // 任務一：打掃與開門
         if(phase === 1) {
             if(env.broom.active) {
                 dx = player.x - env.broom.x; dy = player.y - env.broom.y;
-                if(Math.sqrt(dx*dx + dy*dy) < 50) {
-                    env.broom.active = false; env.petals = false; // 落花消失
+                if(Math.sqrt(dx*dx + dy*dy) < 60) {
+                    env.broom.active = false; env.petals = false; 
                     playSound('task');
                 }
             }
             if(!env.broom.active && !env.gate.open) {
-                if(player.x > env.gate.x && player.x < env.gate.x + env.gate.w && player.y > env.gate.y - 50) {
+                if(player.x > env.gate.x && player.x < env.gate.x + env.gate.w && player.y > env.gate.y - 60) {
                     env.gate.open = true;
                     showDialog("終於打掃乾淨了！\n「花徑不曾緣客掃，蓬門今始為君開。」");
                 }
@@ -367,7 +369,7 @@
         // 任務二：拿酒菜放桌上
         if(phase === 2) {
             if(player.state === 'normal') {
-                if(player.x > env.kitchen.x && player.x < env.kitchen.x + env.kitchen.w && player.y < env.kitchen.y + env.kitchen.h + 30) {
+                if(player.x > env.kitchen.x && player.x < env.kitchen.x + env.kitchen.w && player.y < env.kitchen.y + env.kitchen.h + 40) {
                     player.state = 'holdingFood'; playSound('task');
                 }
             }
@@ -383,7 +385,7 @@
         // 任務三：迎客
         if(phase === 3) {
             dx = player.x - cui.x; dy = player.y - cui.y;
-            if(Math.sqrt(dx*dx + dy*dy) < 60) {
+            if(Math.sqrt(dx*dx + dy*dy) < 70) {
                 cui.atTable = true; cui.x = env.table.x - 60; cui.y = env.table.y;
                 player.x = env.table.x + 60; player.y = env.table.y;
                 showDialog("崔明府：「老朋友，好久不見！這草堂風景真好。」\n杜甫：「快快請坐！」");
@@ -392,7 +394,7 @@
 
         // 任務四：邀鄰
         if(phase === 4) {
-            if(player.x > env.fence.x - 50) {
+            if(player.x > env.fence.x - 60) {
                 neighbor.active = true; neighbor.x = env.table.x; neighbor.y = env.table.y - 60;
                 player.x = env.table.x + 60; player.y = env.table.y; 
                 showDialog("「肯與鄰翁相對飲，隔離呼取盡餘杯。」\n老鄰居，快過來一起喝個痛快吧！");
@@ -425,7 +427,7 @@
         if(gameState === 'playing') {
             if(phase === 1 && env.broom.active) drawQuestMarker(env.broom.x, env.broom.y);
             else if(phase === 1 && !env.broom.active && !env.gate.open) drawQuestMarker(env.gate.x + env.gate.w/2, env.gate.y);
-            else if(phase === 2 && player.state === 'normal') drawQuestMarker(env.kitchen.x + 50, env.kitchen.y + 50);
+            else if(phase === 2 && player.state === 'normal') drawQuestMarker(env.kitchen.x + 50, env.kitchen.y + 40);
             else if(phase === 2 && player.state === 'holdingFood') drawQuestMarker(env.table.x, env.table.y);
             else if(phase === 3) drawQuestMarker(cui.x, cui.y);
             else if(phase === 4) drawQuestMarker(env.fence.x - 20, 450);
