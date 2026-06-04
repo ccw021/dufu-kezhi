@@ -16,7 +16,6 @@
         }
         canvas { display: block; width: 100%; height: 100%; }
         
-        /* 頂部古代竹簡風格任務欄 */
         #task-bar {
             position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
             background: #f4edd2; color: #5c3a21; padding: 12px 35px;
@@ -25,7 +24,6 @@
             pointer-events: none; display: none;
         }
 
-        /* 童趣風虛擬方向鍵 */
         #dpad {
             position: absolute; bottom: 30px; right: 30px;
             width: 180px; height: 180px; pointer-events: auto; display: none; z-index: 50;
@@ -40,7 +38,6 @@
         #up { top: 0; left: 60px; } #down { bottom: 0; left: 60px; }
         #left { top: 60px; left: 0; } #right { top: 60px; right: 0; }
 
-        /* 遊戲覆蓋層（羊皮紙文學風格） */
         .overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(44, 62, 80, 0.85); display: flex; flex-direction: column;
@@ -55,7 +52,6 @@
         h1 { color: #a62b2b; font-size: 46px; margin-top: 0; font-family: 'Kaiti', '標楷體', serif; border-bottom: 3px double #8b4513; padding-bottom: 10px;}
         p { font-size: 26px; line-height: 1.6; }
         
-        /* 故事/獨白對話框樣式 */
         .dialog-box {
             font-size: 28px; line-height: 1.7; text-align: left; min-height: 100px;
             padding: 10px; margin-bottom: 20px;
@@ -84,9 +80,7 @@
 
 <div id="game-container">
     <canvas id="gameCanvas" width="1200" height="800"></canvas>
-    
     <div id="task-bar">🌸 當前準備：<span id="task-text"></span></div>
-
     <div id="dpad">
         <div class="dbtn" id="up">▲</div>
         <div class="dbtn" id="left">◀</div>
@@ -103,7 +97,7 @@
         </div>
     </div>
 
-    <!-- 多頁式劇情/內心獨白對話框 -->
+    <!-- 劇情對話框 -->
     <div id="dialog-screen" class="overlay hidden">
         <div class="panel" style="width: 700px;">
             <div id="speaker-name" style="font-size: 22px; font-weight: bold; color: #795548; margin-bottom: 5px; text-align: left;">杜甫：</div>
@@ -130,7 +124,7 @@
 </div>
 
 <script>
-    // --- 安全穩定的聲音引擎 ---
+    // --- 音效引擎 ---
     let audioCtx = null;
     function initAudio() {
         if (!audioCtx) {
@@ -165,7 +159,7 @@
         } catch(e) {}
     }
 
-    // --- 情感豐沛的劇本系統 ---
+    // --- 劇本系統 ---
     let scriptIndex = 0;
     let currentScript = [];
     let scriptCallback = null;
@@ -222,7 +216,7 @@
         }
     }
 
-    // --- 遊戲引擎與防連環觸發系統 ---
+    // --- 遊戲引擎設定 ---
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     
@@ -274,7 +268,7 @@
         {x: 900, y: 30, s: 2.0, angle: Math.PI/2}
     ];
 
-    // --- 核心繪圖系統 ---
+    // --- 繪圖系統 ---
     function drawMap() {
         let wave = Math.sin(animFrame * 0.05) * 5;
         ctx.fillStyle = '#4ea1a1'; ctx.fillRect(0, 0, canvas.width, 95); 
@@ -357,7 +351,6 @@
         if(!c.active && !isPlayer) return;
         ctx.save();
         let targetY = c.y + c.jumpY;
-
         ctx.font = '55px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(c.emoji, c.x, targetY);
 
@@ -382,7 +375,7 @@
         ctx.fillText('❓', x, y - 40 - pulse*0.5);
     }
 
-    // --- 嚴謹的腳本啟動與遊戲流程 ---
+    // --- 互動邏輯 ---
     function startIntro() {
         initAudio(); 
         document.getElementById('start-screen').classList.add('hidden');
@@ -417,7 +410,6 @@
         if(gameState !== 'playing' || isTransitioning) return;
         let dx, dy;
 
-        // 1. 掃地與開蓬門
         if(phase === 1) {
             if(env.broom.active) {
                 dx = player.x - env.broom.x; dy = player.y - env.broom.y;
@@ -442,11 +434,10 @@
             }
         }
 
-        // 2. 取酒菜放石桌
         if(phase === 2) {
             if(player.state === 'normal') {
-                // 真正走進廚房範圍內即可觸發
-                if(player.x > env.kitchen.x - 10 && player.x < env.kitchen.x + env.kitchen.w + 10 && player.y < env.kitchen.y + env.kitchen.h + 15) {
+                // 放寬範圍，只要靠近廚房區域就能拿
+                if(player.x > env.kitchen.x - 30 && player.x < env.kitchen.x + env.kitchen.w + 30 && player.y < env.kitchen.y + env.kitchen.h + 40) {
                     player.state = 'holdingFood'; playSound('pop');
                 }
             }
@@ -468,7 +459,6 @@
             }
         }
 
-        // 3. 迎接崔明府
         if(phase === 3) {
             dx = player.x - cui.x; dy = player.y - cui.y;
             if(Math.sqrt(dx*dx + dy*dy) < 65) {
@@ -489,7 +479,6 @@
             }
         }
 
-        // 4. 呼喚鄰居共飲
         if(phase === 4) {
             if(player.x > env.fence.x - 65) {
                 isTransitioning = true;
@@ -520,17 +509,13 @@
             if(keys.ArrowLeft || keys.a) nx -= player.speed;
             if(keys.ArrowRight || keys.d) nx += player.speed;
 
+            // 外圍邊界限制
             nx = Math.max(30, Math.min(1170, nx));
             ny = Math.max(120, Math.min(770, ny));
             
-            // 🏠 碰撞箱修復：為廚房開一扇「隱形門」
-            let hitHouseWall = (nx > env.house.x - 20 && nx < env.house.x + env.house.w + 20 && ny < env.house.y + env.house.h - 10);
-            let inKitchenArea = (nx > env.kitchen.x - 10 && nx < env.kitchen.x + env.kitchen.w + 10 && ny < env.kitchen.y + env.kitchen.h + 20);
-            
-            // 如果撞到房子，但不是在廚房門口，就擋住
-            if(!(hitHouseWall && !inKitchenArea)) {
-                player.x = nx; player.y = ny;
-            }
+            // 🚪 取消房子的實體牆壁，允許穿梭！
+            player.x = nx; 
+            player.y = ny;
             
             checkStageProgress();
         }
@@ -541,7 +526,7 @@
         if(gameState === 'playing') {
             if(phase === 1 && env.broom.active) drawQuestMarker(env.broom.x, env.broom.y);
             else if(phase === 1 && !env.broom.active && !env.gate.open) drawQuestMarker(env.gate.x + 100, env.gate.y + 20);
-            else if(phase === 2 && player.state === 'normal') drawQuestMarker(env.kitchen.x + 50, env.kitchen.y + 30); // 問號移回廚房內部
+            else if(phase === 2 && player.state === 'normal') drawQuestMarker(env.kitchen.x + 50, env.kitchen.y + 30);
             else if(phase === 2 && player.state === 'holdingFood') drawQuestMarker(env.table.x, env.table.y);
             else if(phase === 3) drawQuestMarker(cui.x, cui.y);
             else if(phase === 4) drawQuestMarker(env.fence.x - 30, 500);
