@@ -235,6 +235,16 @@
     window.addEventListener('keydown', e => { if(keys.hasOwnProperty(e.key)) keys[e.key] = true; });
     window.addEventListener('keyup', e => { if(keys.hasOwnProperty(e.key)) keys[e.key] = false; });
     
+    const setupDpad = (id, key1, key2) => {
+        const btn = document.getElementById(id);
+        const press = (e) => { e.preventDefault(); keys[key1] = true; keys[key2] = true; };
+        const release = (e) => { e.preventDefault(); keys[key1] = false; keys[key2] = false; };
+        btn.addEventListener('mousedown', press); btn.addEventListener('mouseup', release); btn.addEventListener('mouseleave', release);
+        btn.addEventListener('touchstart', press); btn.addEventListener('touchend', release);
+    };
+    setupDpad('up', 'ArrowUp', 'w'); setupDpad('down', 'ArrowDown', 's'); 
+    setupDpad('left', 'ArrowLeft', 'a'); setupDpad('right', 'ArrowRight', 'd');
+    
     // --- 環境物件設定 ---
     let env = {
         house: { x: 300, y: 100, w: 600, h: 180 },
@@ -432,10 +442,13 @@
             }
         }
 
-        // 2. 取酒菜放石桌
+        // 2. 取酒菜放石桌 (已修復廚房觸發範圍)
         if(phase === 2) {
             if(player.state === 'normal') {
-                if(player.x > env.kitchen.x && player.x < env.kitchen.x + env.kitchen.w && player.y < env.kitchen.y + env.kitchen.h + 35) {
+                // 放寬判定距離，讓杜甫站在房子外也能順利拿取酒菜
+                dx = player.x - (env.kitchen.x + 50); 
+                dy = player.y - (env.kitchen.y + 60);
+                if(Math.sqrt(dx*dx + dy*dy) < 110) {
                     player.state = 'holdingFood'; playSound('pop');
                 }
             }
@@ -512,7 +525,8 @@
             nx = Math.max(30, Math.min(1170, nx));
             ny = Math.max(120, Math.min(770, ny));
             
-            if(!(nx > env.house.x - 20 && nx < env.house.x + env.house.w + 20 && ny < env.house.y + env.house.h + 10)) {
+            // 修復空氣牆：讓杜甫可以稍微靠近屋簷，不會被擋得太遠
+            if(!(nx > env.house.x - 20 && nx < env.house.x + env.house.w + 20 && ny < env.house.y + env.house.h - 10)) {
                 player.x = nx; player.y = ny;
             }
             checkStageProgress();
@@ -524,7 +538,7 @@
         if(gameState === 'playing') {
             if(phase === 1 && env.broom.active) drawQuestMarker(env.broom.x, env.broom.y);
             else if(phase === 1 && !env.broom.active && !env.gate.open) drawQuestMarker(env.gate.x + 100, env.gate.y + 20);
-            else if(phase === 2 && player.state === 'normal') drawQuestMarker(env.kitchen.x + 50, env.kitchen.y + 30);
+            else if(phase === 2 && player.state === 'normal') drawQuestMarker(env.kitchen.x + 50, env.kitchen.y + 80); // 問號移到房子外面一點
             else if(phase === 2 && player.state === 'holdingFood') drawQuestMarker(env.table.x, env.table.y);
             else if(phase === 3) drawQuestMarker(cui.x, cui.y);
             else if(phase === 4) drawQuestMarker(env.fence.x - 30, 500);
