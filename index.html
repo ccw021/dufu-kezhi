@@ -84,6 +84,7 @@
         <div class="dbtn" id="down">⬇️</div>
     </div>
 
+    <!-- 開始畫面 -->
     <div id="start-screen" class="overlay">
         <div class="panel">
             <h1>📜 杜甫《客至》</h1>
@@ -93,6 +94,7 @@
         </div>
     </div>
 
+    <!-- 劇情對話框 -->
     <div id="dialog-screen" class="overlay hidden">
         <div class="panel">
             <div id="dialog-text"></div>
@@ -100,6 +102,7 @@
         </div>
     </div>
 
+    <!-- 結束畫面 -->
     <div id="end-screen" class="overlay hidden">
         <div class="panel" style="text-align: center;">
             <h1 style="color: #c0392b; border-color: #c0392b;">🎉 賓主盡歡</h1>
@@ -213,7 +216,6 @@
         if(env.petals) {
             ctx.fillStyle = '#FFB6C1';
             for(let i=0; i<50; i++) {
-                // 利用固定的假隨機座標繪製落花
                 let px = 200 + (Math.sin(i * 123) * 150);
                 let py = 300 + (Math.cos(i * 321) * 200);
                 ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI*2); ctx.fill();
@@ -268,7 +270,8 @@
     function drawCharacter(c, isPlayer) {
         if(!c.active && !isPlayer) return;
         ctx.font = '50px Arial';
-        ctx.textAlign = 'center'; textBaseline = 'middle';
+        ctx.textAlign = 'center'; 
+        ctx.textBaseline = 'middle'; // 🐛 就是這裡！修復了缺少 ctx. 的問題！
         
         // 畫表情符號
         ctx.fillText(c.emoji, c.x, c.y + 15);
@@ -287,6 +290,10 @@
         ctx.fillStyle = '#fff'; ctx.font = 'bold 30px Arial'; ctx.textAlign = 'center';
         ctx.fillText('❓', x, y - 40 - pulse*0.5);
     }
+
+    // 🌟 在遊戲開始前先畫一次背景，讓開始畫面的背後不會全黑
+    drawBackground();
+    drawCharacter(player, true);
 
     // --- 遊戲邏輯與互動 ---
     function startGame() {
@@ -342,7 +349,6 @@
 
         // 任務一：打掃與開門
         if(phase === 1) {
-            // 拿掃把
             if(env.broom.active) {
                 dx = player.x - env.broom.x; dy = player.y - env.broom.y;
                 if(Math.sqrt(dx*dx + dy*dy) < 50) {
@@ -350,7 +356,6 @@
                     playSound('task');
                 }
             }
-            // 開門 (需先拿掃把)
             if(!env.broom.active && !env.gate.open) {
                 if(player.x > env.gate.x && player.x < env.gate.x + env.gate.w && player.y > env.gate.y - 50) {
                     env.gate.open = true;
@@ -361,13 +366,11 @@
         
         // 任務二：拿酒菜放桌上
         if(phase === 2) {
-            // 拿食物
             if(player.state === 'normal') {
                 if(player.x > env.kitchen.x && player.x < env.kitchen.x + env.kitchen.w && player.y < env.kitchen.y + env.kitchen.h + 30) {
                     player.state = 'holdingFood'; playSound('task');
                 }
             }
-            // 放桌上
             if(player.state === 'holdingFood') {
                 dx = player.x - env.table.x; dy = player.y - env.table.y;
                 if(Math.sqrt(dx*dx + dy*dy) < 80) {
@@ -381,7 +384,6 @@
         if(phase === 3) {
             dx = player.x - cui.x; dy = player.y - cui.y;
             if(Math.sqrt(dx*dx + dy*dy) < 60) {
-                // 兩人自動坐到桌旁
                 cui.atTable = true; cui.x = env.table.x - 60; cui.y = env.table.y;
                 player.x = env.table.x + 60; player.y = env.table.y;
                 showDialog("崔明府：「老朋友，好久不見！這草堂風景真好。」\n杜甫：「快快請坐！」");
@@ -391,9 +393,8 @@
         // 任務四：邀鄰
         if(phase === 4) {
             if(player.x > env.fence.x - 50) {
-                // 鄰居出現並入座
                 neighbor.active = true; neighbor.x = env.table.x; neighbor.y = env.table.y - 60;
-                player.x = env.table.x + 60; player.y = env.table.y; // 確保玩家在座位上
+                player.x = env.table.x + 60; player.y = env.table.y; 
                 showDialog("「肯與鄰翁相對飲，隔離呼取盡餘杯。」\n老鄰居，快過來一起喝個痛快吧！");
             }
         }
@@ -402,7 +403,6 @@
     function gameLoop() {
         animFrame++;
 
-        // 移動邏輯
         if(gameState === 'playing') {
             let nextX = player.x, nextY = player.y;
             if(keys.ArrowUp || keys.w) nextY -= player.speed;
@@ -410,7 +410,6 @@
             if(keys.ArrowLeft || keys.a) nextX -= player.speed;
             if(keys.ArrowRight || keys.d) nextX += player.speed;
 
-            // 邊界與房屋碰撞限制
             nextX = Math.max(30, Math.min(1170, nextX));
             nextY = Math.max(30, Math.min(770, nextY));
             if(!(nextX > env.house.x && nextX < env.house.x+env.house.w && nextY < env.house.y+env.house.h)) {
@@ -420,11 +419,9 @@
             checkInteractions();
         }
 
-        // 繪製畫面
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         drawBackground();
         
-        // 繪製任務提示標記
         if(gameState === 'playing') {
             if(phase === 1 && env.broom.active) drawQuestMarker(env.broom.x, env.broom.y);
             else if(phase === 1 && !env.broom.active && !env.gate.open) drawQuestMarker(env.gate.x + env.gate.w/2, env.gate.y);
