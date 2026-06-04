@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>杜甫《客至》草堂迎客 RPG</title>
+    <style>
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: #1a1a2e; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none;
+        }
+        #game-container {
+            position: relative; width: 100%; height: 100%; max-width: 1200px; margin: 0 auto; background: #8FBC8F;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        canvas { display: block; width: 100%; height: 100%; }
+        
+        /* 任務指示橫幅 */
+        #task-bar {
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
+            background: rgba(44, 62, 80, 0.9); color: #f1c40f; padding: 15px 30px;
+            border-radius: 30px; border: 3px solid #f39c12; font-size: 24px; font-weight: bold;
+            text-align: center; white-space: nowrap; z-index: 50; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            pointer-events: none;
+        }
+
+        /* 虛擬方向鍵 */
+        #dpad {
+            position: absolute; bottom: 30px; right: 30px;
+            width: 180px; height: 180px; pointer-events: auto; display: none; z-index: 50;
+        }
+        .dbtn {
+            position: absolute; width: 60px; height: 60px; background: rgba(255,255,255,0.7);
+            border-radius: 15px; font-size: 30px; display: flex; justify-content: center; align-items: center;
+            user-select: none; border: 2px solid #555; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .dbtn:active { background: rgba(200,200,200,0.9); transform: scale(0.95); }
+        #up { top: 0; left: 60px; } #down { bottom: 0; left: 60px; }
+        #left { top: 60px; left: 0; } #right { top: 60px; right: 0; }
+
+        /* 畫面覆蓋層 */
+        .overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; color: white; text-align: center; z-index: 100;
+        }
+        .hidden { display: none !important; }
+        .panel {
+            background: #fdf5e6; color: #2c3e50; padding: 40px; border-radius: 15px; max-width: 70%;
+            border: 6px solid #8b4513; box-shadow: 0 0 30px rgba(0,0,0,0.5);
+        }
+        h1 { color: #8b4513; font-size: 45px; margin-top: 0; border-bottom: 2px solid #8b4513; padding-bottom: 10px;}
+        p { font-size: 26px; line-height: 1.6; font-weight: bold; }
+        .poem { color: #c0392b; font-size: 28px; margin: 20px 0; font-family: "標楷體", "KaiTi", serif; }
+        button {
+            padding: 15px 40px; font-size: 24px; font-weight: bold; cursor: pointer;
+            background: #27ae60; color: white; border: none; border-radius: 10px;
+            margin-top: 20px; transition: 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        button:hover { background: #2ecc71; transform: scale(1.05); }
+
+        /* 劇情對話框 */
+        #dialog-screen .panel {
+            background: rgba(253, 245, 230, 0.95); border-color: #2980b9; text-align: left;
+        }
+        #dialog-text { font-size: 26px; line-height: 1.6; }
+        #dialog-btn { background: #2980b9; width: 100%; }
+        #dialog-btn:hover { background: #3498db; }
+
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas" width="1200" height="800"></canvas>
+    
+    <div id="task-bar" class="hidden">任務：<span id="task-text"></span></div>
+
+    <div id="dpad" class="hidden">
+        <div class="dbtn" id="up">⬆️</div>
+        <div class="dbtn" id="left">⬅️</div>
+        <div class="dbtn" id="right">➡️</div>
+        <div class="dbtn" id="down">⬇️</div>
+    </div>
+
+    <div id="start-screen" class="overlay">
+        <div class="panel">
+            <h1>📜 杜甫《客至》</h1>
+            <p>我獨居在偏僻美麗的草堂。<br>今天，我的好友「崔明府」要來探望我，<br>我得趕緊準備迎接客人！</p>
+            <p style="color: #555; font-size: 20px;">操作說明：使用右下角方向鍵（或鍵盤方向鍵）移動杜甫。<br>走到發光或有問號「❓」的地方完成任務。</p>
+            <button onclick="startGame()">進入草堂</button>
+        </div>
+    </div>
+
+    <div id="dialog-screen" class="overlay hidden">
+        <div class="panel">
+            <div id="dialog-text"></div>
+            <button id="dialog-btn" onclick="nextPhase()">繼續</button>
+        </div>
+    </div>
+
+    <div id="end-screen" class="overlay hidden">
+        <div class="panel" style="text-align: center;">
+            <h1 style="color: #c0392b; border-color: #c0392b;">🎉 賓主盡歡</h1>
+            <p>任務完成！杜甫與友人度過了愉快的一天。</p>
+            <div class="poem">
+                舍南舍北皆春水，但見群鷗日日來。<br>
+                花徑不曾緣客掃，蓬門今始為君開。<br>
+                盤飧市遠無兼味，樽酒家貧只舊醅。<br>
+                肯與鄰翁相對飲，隔離呼取盡餘杯。
+            </div>
+            <button onclick="location.reload()">重新遊玩</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 聲音引擎 ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playSound(type) {
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.connect(gainNode); gainNode.connect(audioCtx.destination);
+
+        if(type === 'task') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(500, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(800, audioCtx.currentTime + 0.1);
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+            osc.start(); osc.stop(audioCtx.currentTime + 0.5);
+        } else if(type === 'victory') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(600, audioCtx.currentTime + 0.2);
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime + 0.4);
+            gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.0);
+            osc.start(); osc.stop(audioCtx.currentTime + 1.0);
+        }
+    }
+
+    // --- 遊戲狀態與任務設定 ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    let gameState = 'init'; // init, playing, dialog, end
+    let phase = 1; // 任務階段 1~4
+    let animFrame = 0;
+
+    const tasks = [
+        "找出「掃把」打掃庭院，並打開下方「蓬門」。",
+        "到左側「廚房」準備酒菜，放在庭院「石桌」上。",
+        "走到門口迎接好友「崔明府」入座。",
+        "走到右側「籬笆」呼叫鄰居老翁共飲。"
+    ];
+
+    // 鍵盤與操控
+    const keys = { ArrowUp:false, ArrowLeft:false, ArrowDown:false, ArrowRight:false, w:false, a:false, s:false, d:false };
+    const player = { x: 600, y: 550, size: 25, speed: 6, emoji: '👳‍♂️', state: 'normal' }; // 杜甫
+
+    window.addEventListener('keydown', e => { if(keys.hasOwnProperty(e.key)) keys[e.key] = true; });
+    window.addEventListener('keyup', e => { if(keys.hasOwnProperty(e.key)) keys[e.key] = false; });
+    const setupDpad = (id, key1, key2) => {
+        const btn = document.getElementById(id);
+        const press = (e) => { e.preventDefault(); keys[key1] = true; keys[key2] = true; };
+        const release = (e) => { e.preventDefault(); keys[key1] = false; keys[key2] = false; };
+        btn.addEventListener('mousedown', press); btn.addEventListener('mouseup', release); btn.addEventListener('mouseleave', release);
+        btn.addEventListener('touchstart', press); btn.addEventListener('touchend', release);
+    };
+    setupDpad('up', 'ArrowUp', 'w'); setupDpad('down', 'ArrowDown', 's'); 
+    setupDpad('left', 'ArrowLeft', 'a'); setupDpad('right', 'ArrowRight', 'd');
+
+    // --- 地圖互動元素 ---
+    let env = {
+        house: { x: 300, y: 50, w: 600, h: 200 },
+        kitchen: { x: 320, y: 150, w: 100, h: 80 },
+        broom: { x: 250, y: 350, active: true },
+        gate: { x: 500, y: 730, w: 200, h: 70, open: false },
+        table: { x: 600, y: 450, r: 50, hasFood: false },
+        fence: { x: 1120, y: 0, w: 80, h: 800 },
+        petals: true
+    };
+
+    // NPC
+    let cui = { x: 600, y: 850, active: false, atTable: false, emoji: '👨‍💼' }; // 崔明府
+    let neighbor = { x: 1250, y: 450, active: false, atTable: false, emoji: '👴' }; // 鄰居
+
+    // --- 繪圖函數 ---
+    function drawBackground() {
+        // 草地
+        ctx.fillStyle = '#8FBC8F'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // 石板路
+        ctx.fillStyle = '#A9A9A9';
+        ctx.fillRect(550, 250, 100, 550); // 主幹道
+        ctx.fillRect(350, 400, 500, 100); // 橫向
+
+        // 右側籬笆
+        ctx.fillStyle = '#DEB887';
+        for(let y=0; y<800; y+=40) {
+            ctx.fillRect(1150, y, 20, 35);
+        }
+        ctx.fillRect(1140, 200, 40, 10); ctx.fillRect(1140, 600, 40, 10);
+
+        // 樹木 (左與右)
+        drawTree(150, 200); drawTree(150, 600);
+        drawTree(1000, 200); drawTree(1000, 700);
+
+        // 落花
+        if(env.petals) {
+            ctx.fillStyle = '#FFB6C1';
+            for(let i=0; i<50; i++) {
+                // 利用固定的假隨機座標繪製落花
+                let px = 200 + (Math.sin(i * 123) * 150);
+                let py = 300 + (Math.cos(i * 321) * 200);
+                ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI*2); ctx.fill();
+                
+                let px2 = 800 + (Math.sin(i * 333) * 150);
+                let py2 = 300 + (Math.cos(i * 444) * 200);
+                ctx.beginPath(); ctx.arc(px2, py2, 6, 0, Math.PI*2); ctx.fill();
+            }
+        }
+
+        // 草堂房子
+        ctx.fillStyle = '#F5DEB3'; ctx.fillRect(env.house.x, env.house.y, env.house.w, env.house.h); // 牆壁
+        ctx.fillStyle = '#8B4513'; ctx.fillRect(env.house.x-20, env.house.y-20, env.house.w+40, 60); // 茅草屋頂
+        
+        // 廚房區
+        ctx.fillStyle = '#7f8c8d'; ctx.fillRect(env.kitchen.x, env.kitchen.y, env.kitchen.w, env.kitchen.h);
+        ctx.font = '40px Arial'; ctx.fillText('🍲', env.kitchen.x + 30, env.kitchen.y + 55);
+
+        // 石桌
+        ctx.fillStyle = '#D3D3D3';
+        ctx.beginPath(); ctx.arc(env.table.x, env.table.y, env.table.r, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = '#808080'; ctx.lineWidth = 4; ctx.stroke();
+        
+        if(env.table.hasFood) {
+            ctx.fillText('🍲', env.table.x - 30, env.table.y + 10);
+            ctx.fillText('🍶', env.table.x + 5, env.table.y + 10);
+        }
+
+        // 蓬門 (大門)
+        ctx.fillStyle = '#8B4513';
+        if(!env.gate.open) {
+            ctx.fillRect(env.gate.x, env.gate.y, env.gate.w, env.gate.h); // 關閉
+        } else {
+            ctx.fillRect(env.gate.x, env.gate.y, 30, env.gate.h); // 打開(左)
+            ctx.fillRect(env.gate.x + env.gate.w - 30, env.gate.y, 30, env.gate.h); // 打開(右)
+        }
+
+        // 掃把
+        if(env.broom.active) {
+            ctx.fillText('🧹', env.broom.x, env.broom.y);
+        }
+    }
+
+    function drawTree(tx, ty) {
+        ctx.fillStyle = '#8B4513'; ctx.fillRect(tx-10, ty, 20, 80); // 樹幹
+        ctx.fillStyle = '#FFC0CB'; // 粉紅櫻花/桃花
+        ctx.beginPath(); ctx.arc(tx, ty-20, 60, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(tx-40, ty+10, 50, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(tx+40, ty+10, 50, 0, Math.PI*2); ctx.fill();
+    }
+
+    function drawCharacter(c, isPlayer) {
+        if(!c.active && !isPlayer) return;
+        ctx.font = '50px Arial';
+        ctx.textAlign = 'center'; textBaseline = 'middle';
+        
+        // 畫表情符號
+        ctx.fillText(c.emoji, c.x, c.y + 15);
+        
+        // 如果玩家拿著東西
+        if(isPlayer && player.state === 'holdingFood') {
+            ctx.font = '30px Arial'; ctx.fillText('🍲', c.x + 20, c.y - 10);
+        }
+    }
+
+    // 繪製任務提示問號與光暈
+    function drawQuestMarker(x, y) {
+        let pulse = Math.abs(Math.sin(animFrame * 0.1)) * 10;
+        ctx.fillStyle = `rgba(241, 196, 15, ${0.4 + pulse*0.02})`;
+        ctx.beginPath(); ctx.arc(x, y, 40 + pulse, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 30px Arial'; ctx.textAlign = 'center';
+        ctx.fillText('❓', x, y - 40 - pulse*0.5);
+    }
+
+    // --- 遊戲邏輯與互動 ---
+    function startGame() {
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('ui-layer').classList.remove('hidden');
+        document.getElementById('task-bar').classList.remove('hidden');
+        document.getElementById('dpad').classList.remove('hidden');
+        
+        document.getElementById('task-text').innerText = tasks[0];
+        gameState = 'playing';
+        requestAnimationFrame(gameLoop);
+    }
+
+    function showDialog(text) {
+        gameState = 'dialog';
+        playSound('task');
+        
+        // 格式化文字，將詩句變色加粗
+        let formattedText = text.replace(/「(.*?)」/g, '<br><span class="poem">「$1」</span><br>');
+        
+        document.getElementById('dialog-screen').classList.remove('hidden');
+        document.getElementById('dialog-text').innerHTML = formattedText;
+    }
+
+    function nextPhase() {
+        document.getElementById('dialog-screen').classList.add('hidden');
+        phase++;
+        
+        if(phase === 2) {
+            document.getElementById('task-text').innerText = tasks[1];
+            gameState = 'playing';
+        } else if (phase === 3) {
+            document.getElementById('task-text').innerText = tasks[2];
+            cui.active = true; cui.y = 750; // 客人出現
+            gameState = 'playing';
+        } else if (phase === 4) {
+            document.getElementById('task-text').innerText = tasks[3];
+            gameState = 'playing';
+        } else if (phase === 5) {
+            // 結局
+            playSound('victory');
+            document.getElementById('task-bar').classList.add('hidden');
+            document.getElementById('dpad').classList.add('hidden');
+            document.getElementById('end-screen').classList.remove('hidden');
+            gameState = 'end';
+        }
+    }
+
+    function checkInteractions() {
+        if(gameState !== 'playing') return;
+        
+        let dx, dy, dist;
+
+        // 任務一：打掃與開門
+        if(phase === 1) {
+            // 拿掃把
+            if(env.broom.active) {
+                dx = player.x - env.broom.x; dy = player.y - env.broom.y;
+                if(Math.sqrt(dx*dx + dy*dy) < 50) {
+                    env.broom.active = false; env.petals = false; // 落花消失
+                    playSound('task');
+                }
+            }
+            // 開門 (需先拿掃把)
+            if(!env.broom.active && !env.gate.open) {
+                if(player.x > env.gate.x && player.x < env.gate.x + env.gate.w && player.y > env.gate.y - 50) {
+                    env.gate.open = true;
+                    showDialog("終於打掃乾淨了！\n「花徑不曾緣客掃，蓬門今始為君開。」");
+                }
+            }
+        }
+        
+        // 任務二：拿酒菜放桌上
+        if(phase === 2) {
+            // 拿食物
+            if(player.state === 'normal') {
+                if(player.x > env.kitchen.x && player.x < env.kitchen.x + env.kitchen.w && player.y < env.kitchen.y + env.kitchen.h + 30) {
+                    player.state = 'holdingFood'; playSound('task');
+                }
+            }
+            // 放桌上
+            if(player.state === 'holdingFood') {
+                dx = player.x - env.table.x; dy = player.y - env.table.y;
+                if(Math.sqrt(dx*dx + dy*dy) < 80) {
+                    env.table.hasFood = true; player.state = 'normal';
+                    showDialog("市場太遠，家裡也窮，只能拿出舊釀的酒了。\n「盤飧市遠無兼味，樽酒家貧只舊醅。」");
+                }
+            }
+        }
+
+        // 任務三：迎客
+        if(phase === 3) {
+            dx = player.x - cui.x; dy = player.y - cui.y;
+            if(Math.sqrt(dx*dx + dy*dy) < 60) {
+                // 兩人自動坐到桌旁
+                cui.atTable = true; cui.x = env.table.x - 60; cui.y = env.table.y;
+                player.x = env.table.x + 60; player.y = env.table.y;
+                showDialog("崔明府：「老朋友，好久不見！這草堂風景真好。」\n杜甫：「快快請坐！」");
+            }
+        }
+
+        // 任務四：邀鄰
+        if(phase === 4) {
+            if(player.x > env.fence.x - 50) {
+                // 鄰居出現並入座
+                neighbor.active = true; neighbor.x = env.table.x; neighbor.y = env.table.y - 60;
+                player.x = env.table.x + 60; player.y = env.table.y; // 確保玩家在座位上
+                showDialog("「肯與鄰翁相對飲，隔離呼取盡餘杯。」\n老鄰居，快過來一起喝個痛快吧！");
+            }
+        }
+    }
+
+    function gameLoop() {
+        animFrame++;
+
+        // 移動邏輯
+        if(gameState === 'playing') {
+            let nextX = player.x, nextY = player.y;
+            if(keys.ArrowUp || keys.w) nextY -= player.speed;
+            if(keys.ArrowDown || keys.s) nextY += player.speed;
+            if(keys.ArrowLeft || keys.a) nextX -= player.speed;
+            if(keys.ArrowRight || keys.d) nextX += player.speed;
+
+            // 邊界與房屋碰撞限制
+            nextX = Math.max(30, Math.min(1170, nextX));
+            nextY = Math.max(30, Math.min(770, nextY));
+            if(!(nextX > env.house.x && nextX < env.house.x+env.house.w && nextY < env.house.y+env.house.h)) {
+                player.x = nextX; player.y = nextY;
+            }
+
+            checkInteractions();
+        }
+
+        // 繪製畫面
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawBackground();
+        
+        // 繪製任務提示標記
+        if(gameState === 'playing') {
+            if(phase === 1 && env.broom.active) drawQuestMarker(env.broom.x, env.broom.y);
+            else if(phase === 1 && !env.broom.active && !env.gate.open) drawQuestMarker(env.gate.x + env.gate.w/2, env.gate.y);
+            else if(phase === 2 && player.state === 'normal') drawQuestMarker(env.kitchen.x + 50, env.kitchen.y + 50);
+            else if(phase === 2 && player.state === 'holdingFood') drawQuestMarker(env.table.x, env.table.y);
+            else if(phase === 3) drawQuestMarker(cui.x, cui.y);
+            else if(phase === 4) drawQuestMarker(env.fence.x - 20, 450);
+        }
+
+        drawCharacter(player, true);
+        drawCharacter(cui, false);
+        drawCharacter(neighbor, false);
+
+        if(gameState !== 'end') {
+            requestAnimationFrame(gameLoop);
+        }
+    }
+</script>
+</body>
+</html>
