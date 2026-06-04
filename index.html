@@ -94,6 +94,7 @@
         <div class="dbtn" id="down">▼</div>
     </div>
 
+    <!-- 開始畫面 -->
     <div id="start-screen" class="overlay">
         <div class="panel">
             <h1>📜 杜甫《客至》情境體驗遊戲</h1>
@@ -102,6 +103,7 @@
         </div>
     </div>
 
+    <!-- 多頁式劇情/內心獨白對話框 -->
     <div id="dialog-screen" class="overlay hidden">
         <div class="panel" style="width: 700px;">
             <div id="speaker-name" style="font-size: 22px; font-weight: bold; color: #795548; margin-bottom: 5px; text-align: left;">杜甫：</div>
@@ -110,6 +112,7 @@
         </div>
     </div>
 
+    <!-- 結束畫面 -->
     <div id="end-screen" class="overlay hidden">
         <div class="panel">
             <h1 style="color: #27ae60; border-color: #27ae60;">🎉 賓主盡歡，隔離同飲！</h1>
@@ -212,7 +215,6 @@
             playSound('pop');
             scriptIndex++;
         } else {
-            // 對話結束，嚴格執行回調並關閉鎖
             document.getElementById('dialog-screen').classList.add('hidden');
             let cb = scriptCallback;
             scriptCallback = null; 
@@ -227,7 +229,7 @@
     let gameState = 'init'; 
     let phase = 0; 
     let animFrame = 0;
-    let isTransitioning = false; // 🔒 防連環觸發的安全鎖！
+    let isTransitioning = false; 
 
     const keys = { ArrowUp:false, ArrowLeft:false, ArrowDown:false, ArrowRight:false, w:false, a:false, s:false, d:false };
     const player = { x: 600, y: 550, size: 25, speed: 6, emoji: '👳‍♂️', state: 'normal', jumpY: 0, showHearts: false };
@@ -259,7 +261,6 @@
     let cui = { x: 600, y: 880, active: false, emoji: '👨‍💼', jumpY: 0, showHearts: false };
     let neighbor = { x: 1250, y: 480, active: false, emoji: '👴', jumpY: 0, showHearts: false };
 
-    // 浪漫落花
     for(let i=0; i<60; i++) {
         env.petals.push({
             x: 100 + Math.random() * 1000, y: 300 + Math.random() * 380,
@@ -267,7 +268,6 @@
         });
     }
 
-    // 動態海鷗
     let gulls = [
         {x: 200, y: 40, s: 1.5, angle: 0},
         {x: 500, y: 60, s: 1.2, angle: Math.PI},
@@ -384,7 +384,7 @@
 
     // --- 嚴謹的腳本啟動與遊戲流程 ---
     function startIntro() {
-        initAudio(); // 確保音效引擎安全啟動
+        initAudio(); 
         document.getElementById('start-screen').classList.add('hidden');
         startScript(introScript, () => {
             phase = 1;
@@ -415,7 +415,7 @@
 
     function checkStageProgress() {
         if(gameState !== 'playing' || isTransitioning) return;
-        let dx, dy, dist;
+        let dx, dy;
 
         // 1. 掃地與開蓬門
         if(phase === 1) {
@@ -428,13 +428,13 @@
             }
             if(!env.broom.active && !env.gate.open) {
                 if(player.x > env.gate.x && player.x < env.gate.x + env.gate.w && player.y > env.gate.y - 55) {
-                    isTransitioning = true; // 上鎖！防止多重觸發
+                    isTransitioning = true; 
                     env.gate.open = true;
                     player.emoji = '😄'; 
                     startScript(phase1Script, () => {
                         phase = 2;
                         document.getElementById('task-text').innerText = "到左側「廚房」準備酒菜放桌上。";
-                        isTransitioning = false; // 開鎖
+                        isTransitioning = false; 
                         gameState = 'playing';
                         document.getElementById('dpad').style.display = 'block';
                     });
@@ -442,13 +442,11 @@
             }
         }
 
-        // 2. 取酒菜放石桌 (已修復廚房觸發範圍)
+        // 2. 取酒菜放石桌
         if(phase === 2) {
             if(player.state === 'normal') {
-                // 放寬判定距離，讓杜甫站在房子外也能順利拿取酒菜
-                dx = player.x - (env.kitchen.x + 50); 
-                dy = player.y - (env.kitchen.y + 60);
-                if(Math.sqrt(dx*dx + dy*dy) < 110) {
+                // 真正走進廚房範圍內即可觸發
+                if(player.x > env.kitchen.x - 10 && player.x < env.kitchen.x + env.kitchen.w + 10 && player.y < env.kitchen.y + env.kitchen.h + 15) {
                     player.state = 'holdingFood'; playSound('pop');
                 }
             }
@@ -525,10 +523,15 @@
             nx = Math.max(30, Math.min(1170, nx));
             ny = Math.max(120, Math.min(770, ny));
             
-            // 修復空氣牆：讓杜甫可以稍微靠近屋簷，不會被擋得太遠
-            if(!(nx > env.house.x - 20 && nx < env.house.x + env.house.w + 20 && ny < env.house.y + env.house.h - 10)) {
+            // 🏠 碰撞箱修復：為廚房開一扇「隱形門」
+            let hitHouseWall = (nx > env.house.x - 20 && nx < env.house.x + env.house.w + 20 && ny < env.house.y + env.house.h - 10);
+            let inKitchenArea = (nx > env.kitchen.x - 10 && nx < env.kitchen.x + env.kitchen.w + 10 && ny < env.kitchen.y + env.kitchen.h + 20);
+            
+            // 如果撞到房子，但不是在廚房門口，就擋住
+            if(!(hitHouseWall && !inKitchenArea)) {
                 player.x = nx; player.y = ny;
             }
+            
             checkStageProgress();
         }
 
@@ -538,7 +541,7 @@
         if(gameState === 'playing') {
             if(phase === 1 && env.broom.active) drawQuestMarker(env.broom.x, env.broom.y);
             else if(phase === 1 && !env.broom.active && !env.gate.open) drawQuestMarker(env.gate.x + 100, env.gate.y + 20);
-            else if(phase === 2 && player.state === 'normal') drawQuestMarker(env.kitchen.x + 50, env.kitchen.y + 80); // 問號移到房子外面一點
+            else if(phase === 2 && player.state === 'normal') drawQuestMarker(env.kitchen.x + 50, env.kitchen.y + 30); // 問號移回廚房內部
             else if(phase === 2 && player.state === 'holdingFood') drawQuestMarker(env.table.x, env.table.y);
             else if(phase === 3) drawQuestMarker(cui.x, cui.y);
             else if(phase === 4) drawQuestMarker(env.fence.x - 30, 500);
